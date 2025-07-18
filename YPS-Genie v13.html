@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YPS Genie - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* slate-950 */
+        }
+
+        /* --- Splash Screen Styles --- */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #020617; /* slate-950 */
+            transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+        }
+        #splash-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #334155; /* slate-700 */
+            border-bottom-color: #818cf8; /* indigo-400 */
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+
+        /* Glassmorphism Effect */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6); /* slate-900 with opacity */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(30, 41, 59, 0.5); /* slate-800 with opacity */
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; /* slate-900 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; /* slate-700 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; /* slate-600 */
+        }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(90deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Animated gradient border */
+        .gradient-border {
+            position: relative;
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 1px;
+            overflow: hidden;
+        }
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(
+                from 180deg at 50% 50%,
+                #818cf8 0%,
+                #c084fc 25%,
+                #f472b6 50%,
+                #c084fc 75%,
+                #818cf8 100%
+            );
+            animation: rotate 4s linear infinite;
+        }
+        .gradient-border-content {
+            background: #0f172a; /* slate-900 */
+            border-radius: 0.7rem; /* slightly smaller than parent */
+            width: 100%;
+            height: 100%;
+        }
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Notification Animation */
+        .notification {
+            animation: slideIn 0.5s forwards, fadeOut 0.5s 4s forwards;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        .task-view {
+            display: none;
+        }
+        .task-view.active {
+            display: block;
+        }
+        
+        /* Completed Task Style */
+        .task-item.completed {
+            opacity: 0.6;
+        }
+        .task-item.completed .task-title {
+            text-decoration: line-through;
+        }
+        
+        /* In Progress Indicator */
+        .in-progress-indicator {
+            width: 8px;
+            height: 8px;
+            background-color: #60a5fa; /* sky-400 */
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-300">
+
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="flex items-center justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles text-purple-400 mr-3"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            <h1 class="text-5xl font-bold gradient-text">YPS Genie</h1>
+        </div>
+        <span class="loader"></span>
+    </div>
+
+    <div id="main-content" class="flex h-screen overflow-hidden invisible">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 glass-panel flex-col flex-shrink-0 transition-all duration-300 md:flex hidden">
+            <div class="flex items-center justify-center h-20 border-b border-slate-800">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles text-purple-400 mr-2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                <h1 class="text-2xl font-bold gradient-text">YPS Genie</h1>
+            </div>
+            <nav id="main-nav" class="flex-1 px-4 py-6 space-y-2">
+                <a href="#dashboard" class="flex items-center px-4 py-2.5 text-slate-100 bg-slate-800 rounded-lg nav-link">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i>
+                    Dashboard
+                </a>
+                <a href="#all-tasks" class="flex items-center px-4 py-2.5 hover:bg-slate-800 rounded-lg transition-colors nav-link">
+                    <i data-lucide="file-stack" class="w-5 h-5 mr-3"></i>
+                    All Tasks
+                </a>
+                <a href="#agent-network" class="flex items-center px-4 py-2.5 hover:bg-slate-800 rounded-lg transition-colors nav-link">
+                    <i data-lucide="bot" class="w-5 h-5 mr-3"></i>
+                    Agent Network
+                </a>
+                <a href="#analytics" class="flex items-center px-4 py-2.5 hover:bg-slate-800 rounded-lg transition-colors nav-link">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5 mr-3"></i>
+                    Analytics
+                </a>
+                <a href="#" class="flex items-center px-4 py-2.5 hover:bg-slate-800 rounded-lg transition-colors">
+                    <i data-lucide="plug" class="w-5 h-5 mr-3"></i>
+                    Integrations
+                </a>
+            </nav>
+            <div class="px-4 py-6 border-t border-slate-800 space-y-4">
+                 <div class="glass-panel p-4 rounded-lg text-center">
+                    <h3 class="font-semibold text-lg">Credits Remaining</h3>
+                    <p class="text-4xl font-bold gradient-text my-2">128</p>
+                    <button class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">
+                        Add Credits
+                    </button>
+                </div>
+                <a href="#" class="flex items-center px-4 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5 mr-3"></i>
+                    Settings
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <!-- Header -->
+            <header class="flex items-center justify-between h-20 px-6 shrink-0 md:px-8 glass-panel z-10">
+                <button id="menu-toggle" class="md:hidden p-2 rounded-md hover:bg-slate-800">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+                <div class="hidden md:block">
+                    <h2 class="text-2xl font-semibold text-slate-100">Welcome back, Alex!</h2>
+                    <p class="text-sm text-slate-400">Here's what's happening with your projects today.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button class="p-2 rounded-full hover:bg-slate-800 transition-colors">
+                        <i data-lucide="bell" class="w-6 h-6"></i>
+                    </button>
+                    <div class="flex items-center gap-3">
+                        <img src="https://placehold.co/40x40/818cf8/ffffff?text=A" alt="User Avatar" class="w-10 h-10 rounded-full border-2 border-purple-400">
+                        <div>
+                            <p class="font-semibold text-slate-100 text-sm">Alex Thompson</p>
+                            <p class="text-xs text-slate-400">Innovate Crew</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <div id="dashboard" class="task-view active flex-1 p-6 md:p-8 bg-slate-950">
+                <div id="notification-container" class="fixed top-24 right-8 z-50 space-y-2"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    <!-- Left Column: New Task & Active Tasks -->
+                    <div class="lg:col-span-2 space-y-8">
+                        <!-- New Task Card -->
+                        <div class="gradient-border">
+                            <div class="gradient-border-content p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                                <div>
+                                    <h3 class="text-xl font-bold text-slate-100">Make a new request</h3>
+                                    <p class="text-slate-400 mt-1">Tell the Genie what you need. Use your voice, type, or upload a file.</p>
+                                </div>
+                                <button id="new-task-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105">
+                                    <i data-lucide="wand-2" class="w-5 h-5"></i>
+                                    Create Task
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Active Tasks -->
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-100 mb-4">Active Tasks</h3>
+                            <div id="active-tasks-list" class="space-y-4">
+                                <!-- Active tasks will be dynamically populated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Quick Analytics & Recent Activity -->
+                    <div class="lg:col-span-1 space-y-8">
+                        <div class="glass-panel p-6 rounded-lg">
+                            <h3 class="text-xl font-bold text-slate-100 mb-4">Task Progress</h3>
+                             <div class="flex items-center justify-center my-4">
+                                <p id="dashboard-completion-percentage" class="text-6xl font-bold gradient-text">0%</p>
+                            </div>
+                            <p class="text-center text-slate-400">Of all tasks completed.</p>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="glass-panel p-6 rounded-lg">
+                            <h3 class="text-xl font-bold text-slate-100 mb-4">Recent Activity</h3>
+                            <ul class="space-y-4">
+                                <li class="flex gap-4">
+                                    <div class="w-10 h-10 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center shrink-0">
+                                        <i data-lucide="check-circle-2"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-slate-200">"Monthly Report" was completed.</p>
+                                        <p class="text-sm text-slate-400">1 hour ago</p>
+                                    </div>
+                                </li>
+                                <li class="flex gap-4">
+                                    <div class="w-10 h-10 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center shrink-0">
+                                        <i data-lucide="message-square-plus"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-slate-200">New comment on "Landing Page Copy".</p>
+                                        <p class="text-sm text-slate-400">3 hours ago</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Tasks View -->
+            <div id="all-tasks" class="task-view flex-1 p-6 md:p-8 bg-slate-950">
+                <h2 class="text-3xl font-bold text-slate-100 mb-6">All Tasks</h2>
+                
+                <!-- Filters -->
+                <div class="flex items-center gap-2 mb-6" id="task-filters">
+                    <button class="filter-btn bg-slate-800 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors hover:bg-slate-700 active" data-filter="all">All</button>
+                    <button class="filter-btn bg-slate-800 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors hover:bg-slate-700" data-filter="new">New</button>
+                    <button class="filter-btn bg-slate-800 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors hover:bg-slate-700" data-filter="writing">Writing</button>
+                    <button class="filter-btn bg-slate-800 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors hover:bg-slate-700" data-filter="design">Design</button>
+                    <button class="filter-btn bg-slate-800 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors hover:bg-slate-700" data-filter="development">Development</button>
+                </div>
+
+                <div id="all-tasks-list" class="space-y-4">
+                    <!-- Tasks will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Agent Network View -->
+            <div id="agent-network" class="task-view flex-1 p-6 md:p-8 bg-slate-950">
+                <h2 class="text-3xl font-bold text-slate-100 mb-6">Agent Network</h2>
+                <div id="agent-network-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    <!-- Agent profiles will be dynamically inserted here -->
+                </div>
+            </div>
+            
+            <!-- Analytics View -->
+            <div id="analytics" class="task-view flex-1 p-6 md:p-8 bg-slate-950">
+                 <h2 class="text-3xl font-bold text-slate-100 mb-6">Analytics Overview</h2>
+                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                    <!-- Overall Task Stats -->
+                    <div class="glass-panel p-6 rounded-lg flex flex-col justify-center items-center">
+                        <h3 class="text-xl font-bold text-slate-100">Total Tasks</h3>
+                        <p id="total-tasks-stat" class="text-6xl font-bold gradient-text">0</p>
+                    </div>
+                     <div class="glass-panel p-6 rounded-lg flex flex-col justify-center items-center">
+                        <h3 class="text-xl font-bold text-slate-100">Completed</h3>
+                        <p id="completed-tasks-stat" class="text-6xl font-bold text-green-400">0</p>
+                    </div>
+                     <div class="glass-panel p-6 rounded-lg flex flex-col justify-center items-center">
+                        <h3 class="text-xl font-bold text-slate-100">In Progress</h3>
+                        <p id="inprogress-tasks-stat" class="text-6xl font-bold text-amber-400">0</p>
+                    </div>
+                 </div>
+                 
+                 <h2 class="text-3xl font-bold text-slate-100 mb-6">Agent Performance</h2>
+                 <div id="agent-performance-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                     <!-- Agent performance cards will be dynamically inserted here -->
+                 </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- New Task Modal -->
+    <div id="task-modal" class="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-2xl rounded-2xl transform transition-all duration-300 scale-95 opacity-0" id="modal-content">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-6 border-b border-slate-800">
+                <h2 class="text-2xl font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="wand-2" class="text-purple-400"></i>
+                    Make a Wish
+                </h2>
+                <button id="close-modal-btn" class="p-2 rounded-full hover:bg-slate-800 transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <form id="new-task-form" class="p-6" novalidate>
+                <p class="text-slate-400 mb-6">Describe what you need, and the Genie will get to work. Be as detailed as you like.</p>
+                
+                <div class="space-y-4">
+                    <input id="task-title-input" type="text" placeholder="What's the title of your task?" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all" required>
+                    
+                    <textarea id="task-desc-input" placeholder="Tell me more about your request..." rows="5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all" required></textarea>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="task-type-select" class="block mb-2 text-sm font-medium text-slate-400">Task Type</label>
+                            <select id="task-type-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all" required>
+                                <option value="" disabled selected>Select a type</option>
+                                <option value="new">New / General</option>
+                                <option value="writing">Writing</option>
+                                <option value="design">Design</option>
+                                <option value="development">Development</option>
+                            </select>
+                        </div>
+                         <div>
+                            <label for="agent-assign-select" class="block mb-2 text-sm font-medium text-slate-400">Assign Agent</label>
+                            <select id="agent-assign-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all" required>
+                                <option value="" disabled selected>Select an agent</option>
+                                <!-- Agents will be populated here -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-end p-6 gap-4 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl">
+                <button id="cancel-task-btn" type="button" class="bg-transparent hover:bg-slate-800 text-slate-300 font-bold py-3 px-8 rounded-lg transition-colors">
+                    Close
+                </button>
+                <button id="submit-task-btn" type="submit" form="new-task-form" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg transition-colors flex items-center gap-2">
+                    <i data-lucide="send" class="w-5 h-5"></i>
+                    Submit Request
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Task Details Modal -->
+    <div id="task-details-modal" class="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-2xl rounded-2xl transform transition-all duration-300 scale-95 opacity-0" id="task-details-content">
+            <!-- Modal content will be populated by JS -->
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.378.0/dist/umd/lucide.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let tasks = [];
+            let agents = [];
+            
+            const taskTypeMap = {
+                writing: { icon: 'pen-square', color: 'indigo-400' },
+                design: { icon: 'image', color: 'pink-400' },
+                development: { icon: 'code-2', color: 'sky-400' },
+                new: { icon: 'star', color: 'amber-400' }
+            };
+
+            // --- Element References ---
+            const mainContentEl = document.getElementById('main-content');
+            const splashScreen = document.getElementById('splash-screen');
+            const activeTasksList = document.getElementById('active-tasks-list');
+            const allTasksList = document.getElementById('all-tasks-list');
+            const agentNetworkList = document.getElementById('agent-network-list');
+            const agentPerformanceList = document.getElementById('agent-performance-list');
+            const taskModal = document.getElementById('task-modal');
+            const modalContent = document.getElementById('modal-content');
+            const newTaskForm = document.getElementById('new-task-form');
+            const agentAssignSelect = document.getElementById('agent-assign-select');
+            const taskDetailsModal = document.getElementById('task-details-modal');
+            const taskDetailsContent = document.getElementById('task-details-content');
+
+            // --- Initial Setup ---
+            function initializeDashboard() {
+                agents = [
+                    { id: 'agent1', name: 'Eva Rostova', role: 'Content Strategist', avatarChar: 'E', avatarColor: 'c084fc', status: 'available', skills: ['SEO', 'Copywriting', 'Marketing'] },
+                    { id: 'agent2', name: 'Leo Chen', role: 'Lead Designer', avatarChar: 'L', avatarColor: 'f472b6', status: 'engaged', skills: ['UI/UX', 'Figma', 'Prototyping'] },
+                    { id: 'agent3', name: 'Samira Khan', role: 'Backend Developer', avatarChar: 'S', avatarColor: '60a5fa', status: 'away', skills: ['Python', 'APIs', 'Databases'] }
+                ];
+
+                const initialTaskData = [
+                    { id: crypto.randomUUID(), agentId: 'agent1', completed: false, type: 'writing', title: 'Blog Post: "The Future of AI in Marketing"', status: 'In Progress', progress: 75 },
+                    { id: crypto.randomUUID(), agentId: 'agent2', completed: false, type: 'design', title: 'Instagram Graphics for Summer Sale', status: 'In Progress', progress: 25 },
+                    { id: crypto.randomUUID(), agentId: 'agent3', completed: true, type: 'development', title: 'Landing Page Design Consultation', status: 'Completed', progress: 100 }
+                ];
+                tasks = initialTaskData;
+                
+                populateAgentDropdown();
+                renderAll();
+            }
+
+            setTimeout(() => {
+                splashScreen.classList.add('hidden');
+                mainContentEl.classList.remove('invisible');
+                initializeDashboard();
+            }, 1500);
+            
+            function renderAll(){
+                renderAllTasks();
+                renderAgentNetwork();
+                renderAnalytics();
+                lucide.createIcons();
+            }
+
+            // --- Navigation ---
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href').substring(1);
+                    document.querySelectorAll('.task-view').forEach(view => view.classList.remove('active'));
+                    document.getElementById(targetId).classList.add('active');
+                    document.querySelectorAll('.nav-link').forEach(nav => nav.classList.remove('bg-slate-800', 'text-slate-100'));
+                    link.classList.add('bg-slate-800', 'text-slate-100');
+                });
+            });
+
+            // --- Task Rendering ---
+            function createTaskElement(task) {
+                const el = document.createElement('div');
+                el.className = `task-item glass-panel p-4 rounded-lg flex items-center justify-between hover:border-purple-500 border border-transparent transition-all ${task.completed ? 'completed' : ''}`;
+                el.dataset.taskId = task.id;
+                el.dataset.taskType = task.type;
+                
+                const typeInfo = taskTypeMap[task.type];
+                const agent = agents.find(a => a.id === task.agentId);
+
+                const agentAvatarHtml = agent ? `<img src="https://placehold.co/32x32/${agent.avatarColor}/ffffff?text=${agent.avatarChar}" alt="${agent.name}" class="w-8 h-8 rounded-full border-2 border-slate-700">` : '';
+                
+                const progressIndicator = !task.completed ? `<div class="in-progress-indicator mr-2"></div>` : '';
+
+                el.innerHTML = `
+                    <div class="flex items-center gap-4 overflow-hidden">
+                        <div class="bg-slate-800 p-3 rounded-lg flex-shrink-0"><i data-lucide="${typeInfo.icon}" class="w-6 h-6 text-${typeInfo.color}"></i></div>
+                        <div class="truncate">
+                             <div class="flex items-center">
+                                ${progressIndicator}
+                                <p class="font-semibold text-slate-100 truncate task-title">${task.title}</p>
+                            </div>
+                            <p class="text-sm text-slate-400 ml-4">${task.status}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        ${agentAvatarHtml}
+                        <button class="view-details-btn bg-slate-700 hover:bg-slate-600 text-white font-semibold py-1 px-3 rounded-md text-sm"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                        ${!task.completed ? `<button class="run-agent-btn bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded-md text-sm"><i data-lucide="play" class="w-4 h-4"></i></button>` : ''}
+                    </div>
+                `;
+                return el;
+            }
+
+            function renderAllTasks() {
+                activeTasksList.innerHTML = '';
+                allTasksList.innerHTML = '';
+
+                const sortedTasks = [...tasks].sort((a, b) => b.id.localeCompare(a.id)); 
+
+                sortedTasks.forEach(task => {
+                    if (!task.completed) activeTasksList.appendChild(createTaskElement(task));
+                    allTasksList.appendChild(createTaskElement(task));
+                });
+            }
+
+            // --- Agent Rendering ---
+            function populateAgentDropdown() {
+                agentAssignSelect.innerHTML = `<option value="" disabled selected>Select an agent</option>`;
+                agents.forEach(agent => {
+                    if (agent.status !== 'away') {
+                        const option = document.createElement('option');
+                        option.value = agent.id;
+                        option.textContent = agent.name;
+                        agentAssignSelect.appendChild(option);
+                    }
+                });
+            }
+
+            function renderAgentNetwork() {
+                agentNetworkList.innerHTML = '';
+                const statusMap = {
+                    available: { color: 'green', text: 'Available' },
+                    engaged: { color: 'yellow', text: 'Engaged' },
+                    away: { color: 'slate', text: 'Away' }
+                };
+                agents.forEach(agent => {
+                    const statusInfo = statusMap[agent.status];
+                    const el = document.createElement('div');
+                    el.className = `glass-panel p-6 rounded-lg flex flex-col items-center text-center transition-all duration-300 ${agent.status === 'away' ? 'opacity-60' : 'hover:border-purple-500 border border-transparent'}`;
+                    el.innerHTML = `
+                        <div class="relative mb-4">
+                            <img src="https://placehold.co/96x96/${agent.avatarColor}/ffffff?text=${agent.avatarChar}" alt="${agent.name}" class="w-24 h-24 rounded-full border-4 border-slate-700">
+                            <span class="absolute bottom-1 right-1 block h-4 w-4 rounded-full bg-${statusInfo.color}-500 border-2 border-slate-900 ring-2 ring-${statusInfo.color}-500" title="${statusInfo.text}"></span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-100">${agent.name}</h3>
+                        <p class="text-purple-400 font-medium mb-2">${agent.role}</p>
+                        <div class="flex flex-wrap justify-center gap-2 mb-4">
+                            ${agent.skills.map(skill => `<span class="bg-slate-800 text-slate-300 text-xs font-medium px-2.5 py-1 rounded-full">${skill}</span>`).join('')}
+                        </div>
+                        <button class="mt-auto w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors ${agent.status === 'away' ? 'bg-slate-600 cursor-not-allowed' : ''}">
+                            ${agent.status === 'engaged' ? 'View Task' : 'Message'}
+                        </button>
+                    `;
+                    agentNetworkList.appendChild(el);
+                });
+            }
+
+            // --- Analytics ---
+            function renderAnalytics() {
+                const totalTasks = tasks.length;
+                const completedTasks = tasks.filter(t => t.completed).length;
+                const inProgressTasks = totalTasks - completedTasks;
+                const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                document.getElementById('dashboard-completion-percentage').textContent = `${percentage}%`;
+                document.getElementById('total-tasks-stat').textContent = totalTasks;
+                document.getElementById('completed-tasks-stat').textContent = completedTasks;
+                document.getElementById('inprogress-tasks-stat').textContent = inProgressTasks;
+
+                agentPerformanceList.innerHTML = '';
+                agents.forEach(agent => {
+                    const agentTasks = tasks.filter(t => t.agentId === agent.id);
+                    const agentCompleted = agentTasks.filter(t => t.completed).length;
+                    const agentCompletionRate = agentTasks.length > 0 ? Math.round((agentCompleted / agentTasks.length) * 100) : 0;
+                    
+                    const el = document.createElement('div');
+                    el.className = 'glass-panel p-6 rounded-lg';
+                    el.innerHTML = `
+                        <div class="flex items-center mb-4">
+                            <img src="https://placehold.co/48x48/${agent.avatarColor}/ffffff?text=${agent.avatarChar}" alt="${agent.name}" class="w-12 h-12 rounded-full mr-4">
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-100">${agent.name}</h4>
+                                <p class="text-sm text-slate-400">${agent.role}</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between"><span class="font-medium">Tasks Assigned:</span> <span class="font-bold text-purple-400">${agentTasks.length}</span></div>
+                            <div class="flex justify-between"><span class="font-medium">Tasks Completed:</span> <span class="font-bold text-green-400">${agentCompleted}</span></div>
+                            <div class="flex justify-between"><span class="font-medium">Completion Rate:</span> <span class="font-bold text-cyan-400">${agentCompletionRate}%</span></div>
+                        </div>
+                    `;
+                    agentPerformanceList.appendChild(el);
+                });
+            }
+
+            // --- Event Listeners ---
+            mainContentEl.addEventListener('click', (e) => {
+                const viewDetailsButton = e.target.closest('.view-details-btn');
+                const agentButton = e.target.closest('.run-agent-btn');
+
+                if (viewDetailsButton) {
+                    const taskId = viewDetailsButton.closest('.task-item').dataset.taskId;
+                    openTaskDetailsModal(taskId);
+                }
+
+                if (agentButton) {
+                    const taskTitle = agentButton.closest('.task-item').querySelector('.task-title').textContent;
+                    openAgentModal(taskTitle);
+                }
+            });
+
+            document.getElementById('new-task-btn').addEventListener('click', () => {
+                taskModal.classList.remove('hidden');
+                setTimeout(() => modalContent.classList.remove('scale-95', 'opacity-0'), 10);
+            });
+
+            function closeModal() {
+                modalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    taskModal.classList.add('hidden');
+                    [...newTaskForm.elements].forEach(el => el.classList.remove('ring-2', 'ring-red-500'));
+                }, 300);
+            }
+
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('cancel-task-btn').addEventListener('click', closeModal);
+            taskModal.addEventListener('click', (e) => { if (e.target === taskModal) closeModal(); });
+
+            newTaskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                let isValid = true;
+                [...newTaskForm.elements].forEach(el => {
+                    if (el.required) {
+                        el.classList.remove('ring-2', 'ring-red-500');
+                        if (!el.value.trim()) {
+                            isValid = false;
+                            el.classList.add('ring-2', 'ring-red-500');
+                        }
+                    }
+                });
+
+                if (!isValid) return;
+                
+                const newTask = {
+                    id: crypto.randomUUID(),
+                    completed: false,
+                    type: newTaskForm.elements['task-type-select'].value,
+                    agentId: newTaskForm.elements['agent-assign-select'].value,
+                    title: newTaskForm.elements['task-title-input'].value.trim(),
+                    status: 'In Progress',
+                    progress: 0
+                };
+
+                tasks.push(newTask);
+                renderAll();
+                newTaskForm.reset();
+                closeModal();
+                showNotification('Task submitted successfully!');
+            });
+            
+            document.getElementById('task-filters').addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-btn')) {
+                    const filter = e.target.dataset.filter;
+                    document.querySelector('#task-filters .active').classList.remove('active', 'bg-purple-600');
+                    e.target.classList.add('active', 'bg-purple-600');
+                    allTasksList.querySelectorAll('.task-item').forEach(task => {
+                        task.style.display = (filter === 'all' || task.dataset.taskType === filter) ? 'flex' : 'none';
+                    });
+                }
+            });
+            
+            // --- Task Details Modal Logic ---
+            function openTaskDetailsModal(taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                const agent = agents.find(a => a.id === task.agentId);
+                const typeInfo = taskTypeMap[task.type];
+
+                taskDetailsContent.innerHTML = `
+                    <div class="flex items-center justify-between p-6 border-b border-slate-800">
+                        <h2 class="text-2xl font-bold text-slate-100 flex items-center gap-3">
+                            <i data-lucide="${typeInfo.icon}" class="text-${typeInfo.color}"></i>
+                            ${task.title}
+                        </h2>
+                        <button class="close-details-modal-btn p-2 rounded-full hover:bg-slate-800 transition-colors">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-slate-300 mb-2">Progress</h4>
+                            <div class="w-full bg-slate-700 rounded-full h-4">
+                                <div class="bg-purple-600 h-4 rounded-full" style="width: ${task.progress}%"></div>
+                            </div>
+                            <p class="text-right text-slate-400 text-sm mt-1">${task.progress}% Complete</p>
+                        </div>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-slate-300 mb-2">Assigned Agent</h4>
+                            ${agent ? `
+                            <div class="flex items-center gap-3">
+                                <img src="https://placehold.co/40x40/${agent.avatarColor}/ffffff?text=${agent.avatarChar}" alt="${agent.name}" class="w-10 h-10 rounded-full">
+                                <div>
+                                    <p class="font-bold text-slate-100">${agent.name}</p>
+                                    <p class="text-sm text-slate-400">${agent.role}</p>
+                                </div>
+                            </div>
+                            ` : '<p class="text-slate-400">No agent assigned.</p>'}
+                        </div>
+                        <div>
+                             <h4 class="font-semibold text-slate-300 mb-2">Status</h4>
+                             <p class="text-slate-100 font-medium">${task.status}</p>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+                taskDetailsModal.classList.remove('hidden');
+                setTimeout(() => taskDetailsContent.classList.remove('scale-95', 'opacity-0'), 10);
+            }
+
+            function closeTaskDetailsModal() {
+                taskDetailsContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => taskDetailsModal.classList.add('hidden'), 300);
+            }
+
+            taskDetailsModal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('close-details-modal-btn') || e.target.closest('.close-details-modal-btn') || e.target === taskDetailsModal) {
+                    closeTaskDetailsModal();
+                }
+            });
+
+
+            // Agent Modal Logic
+            const agentModal = document.getElementById('agent-analysis-modal');
+            const agentModalContent = document.getElementById('agent-modal-content');
+            
+            function openAgentModal(taskTitle) {
+                document.getElementById('analysis-task-title').textContent = taskTitle;
+                document.getElementById('agent-loading').style.display = 'flex';
+                document.getElementById('agent-result').style.display = 'none';
+                agentModal.classList.remove('hidden');
+                setTimeout(() => agentModalContent.classList.remove('scale-95', 'opacity-0'), 10);
+
+                setTimeout(() => {
+                    document.getElementById('analysis-objectives').innerHTML = ["Define audience.", "Establish call-to-action.", "Ensure brand consistency."].map(o => `<li>${o}</li>`).join('');
+                    document.getElementById('analysis-solutions').innerHTML = ["Conduct competitive analysis.", "Develop A/B test concepts.", "Create content calendar."].map(s => `<li>${s}</li>`).join('');
+                    document.getElementById('agent-loading').style.display = 'none';
+                    document.getElementById('agent-result').style.display = 'block';
+                }, 2500);
+            }
+
+            function closeAgentModal() {
+                agentModalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => agentModal.classList.add('hidden'), 300);
+            }
+
+            document.getElementById('close-agent-modal-btn').addEventListener('click', closeAgentModal);
+            agentModal.addEventListener('click', (e) => { if (e.target === agentModal) closeAgentModal(); });
+
+            // Notification System
+            function showNotification(message) {
+                const notif = document.createElement('div');
+                notif.className = 'notification glass-panel p-4 rounded-lg flex items-center gap-3';
+                notif.innerHTML = `<i data-lucide="check-circle" class="w-6 h-6 text-green-400"></i><p class="font-semibold text-slate-200">${message}</p>`;
+                document.getElementById('notification-container').appendChild(notif);
+                lucide.createIcons({ nodes: [notif] });
+                setTimeout(() => notif.remove(), 4500);
+            }
+        });
+    </script>
+</body>
+</html>
